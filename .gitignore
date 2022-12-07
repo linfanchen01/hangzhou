@@ -1,0 +1,6 @@
+MNIST_DCGAN_results/
+__pycache__/
+data/
+results/
+*.png
+*.csv
