@@ -1,7 +1,6 @@
 import argparse
 import logging
 import time
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -106,3 +105,6 @@ if __name__ == '__main__':
 
     # Save gif:
     save_gif(opt.output_path, opt.fps, fixed_noise=opt.use_fixed)
+    print('..........Training finished..........')
+
+#add one line to test git
