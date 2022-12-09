@@ -22,15 +22,13 @@ class generator(nn.Module):
     # initializers
     def __init__(self, d=128):
         super(generator, self).__init__()
-        self.deconv1 = nn.ConvTranspose2d(100, d * 8, 4, 1, 0)
-        self.deconv1_bn = nn.BatchNorm2d(d * 8)
-        self.deconv2 = nn.ConvTranspose2d(d * 8, d * 4, 4, 2, 1)
-        self.deconv2_bn = nn.BatchNorm2d(d * 4)
-        self.deconv3 = nn.ConvTranspose2d(d * 4, d * 2, 4, 2, 1)
-        self.deconv3_bn = nn.BatchNorm2d(d * 2)
-        self.deconv4 = nn.ConvTranspose2d(d * 2, d, 4, 2, 1)
-        self.deconv4_bn = nn.BatchNorm2d(d)
-        self.deconv5 = nn.ConvTranspose2d(d, 1, 4, 2, 1)
+        self.deconv1 = nn.ConvTranspose2d(100, d * 4, 4, 1, 0)
+        self.deconv1_bn = nn.BatchNorm2d(d * 4)
+        self.deconv2 = nn.ConvTranspose2d(d * 4, d * 2, 4, 2, 1)
+        self.deconv2_bn = nn.BatchNorm2d(d * 2)
+        self.deconv3 = nn.ConvTranspose2d(d * 2, d, 4, 2, 1)
+        self.deconv3_bn = nn.BatchNorm2d(d)
+        self.deconv4 = nn.ConvTranspose2d(d, 1, 4, 2, 1)
 
     # weight_init
     def weight_init(self, mean, std):
@@ -43,8 +41,7 @@ class generator(nn.Module):
         x = F.relu(self.deconv1_bn(self.deconv1(input)))
         x = F.relu(self.deconv2_bn(self.deconv2(x)))
         x = F.relu(self.deconv3_bn(self.deconv3(x)))
-        x = F.relu(self.deconv4_bn(self.deconv4(x)))
-        x = F.tanh(self.deconv5(x))
+        x = F.tanh(self.deconv4(x))
 
         return x
 
@@ -58,9 +55,7 @@ class discriminator(nn.Module):
         self.conv2_bn = nn.BatchNorm2d(d * 2)
         self.conv3 = nn.Conv2d(d * 2, d * 4, 4, 2, 1)
         self.conv3_bn = nn.BatchNorm2d(d * 4)
-        self.conv4 = nn.Conv2d(d * 4, d * 8, 4, 2, 1)
-        self.conv4_bn = nn.BatchNorm2d(d * 8)
-        self.conv5 = nn.Conv2d(d * 8, 1, 4, 1, 0)
+        self.conv4 = nn.Conv2d(d * 4, 1, 4, 1, 0)
 
     # weight_init
     def weight_init(self, mean, std):
@@ -72,8 +67,7 @@ class discriminator(nn.Module):
         x = F.leaky_relu(self.conv1(input), 0.2)
         x = F.leaky_relu(self.conv2_bn(self.conv2(x)), 0.2)
         x = F.leaky_relu(self.conv3_bn(self.conv3(x)), 0.2)
-        x = F.leaky_relu(self.conv4_bn(self.conv4(x)), 0.2)
-        x = F.sigmoid(self.conv5(x))
+        x = F.sigmoid(self.conv4(x))
 
         return x
 
@@ -92,7 +86,8 @@ with torch.no_grad():
 
 def show_result(num_epoch, show=False, save=False, path='result.png', isFix=False):
     z_ = torch.randn((5 * 5, 100)).view(-1, 100, 1, 1)
-    z_ = Variable(z_.to(device), volatile=True)
+    with torch.no_grad():
+        z_= Variable(z_.to(device))
 
     G.eval()
     if isFix:
@@ -150,20 +145,24 @@ def show_train_hist(hist, show=False, save=False, path='Train_hist.png'):
 
 # training parameters
 batch_size = 128
-lr = 0.0002
-train_epoch = 20
+dlr = 0.0002
+glr = 0.0001
+train_epoch = 10000
 
 # data_loader
 # My dataset
 # Counting how many data loaded
+N_folder = 1
 k = 0
-for i in range(0, 1):
+for i in range(0, N_folder):
     for j in range(11010000, 12000000, 100):
         if os.path.exists("./data/compress/compress" + str(i + 1) + "/w3_" + str(j + 100) + ".csv"):
             k = k + 1
             N_filecase = k
         else:
-            print("The root does not exist!")
+            #print("The root does not exist!")
+            pass
+        continue
 print("Totally " + str(N_filecase) + "data, start loading data......")
 
 Mi = np.zeros(N_filecase)
@@ -171,32 +170,36 @@ Ma = np.zeros(N_filecase)
 l = 0
 k = 0
 sub_sampling = 1
+resolution = 32
 if sub_sampling == 0:
     data_set = np.zeros([N_filecase, 512, 512, 1])
 else:
-    data_set = np.zeros([N_filecase, 32, 32, 1])
+    data_set = np.zeros([N_filecase, resolution, resolution, 1])
 
-for i in range(0, 1):
+for i in range(0, N_folder):
     for j in range(11010000, 12000000, 100):
-        data_file = pd.read_csv("./data/compress/compress" + str(i + 1) + "/w3_" + str(j + 100) + ".csv")
-        # data_inter=np.array(data_file.values.T[0])
-        data_inter = np.array(data_file.values)
-        Maxx = np.max(data_inter)
-        Minn = np.min(data_inter)
-        # data_inter=data_inter.reshape([512,512])
-        data_inter = data_inter.reshape([32, 32])
-        if sub_sampling == 0:
-            for m in range(0, 512):
-                for n in range(0, 512):
-                    data_set[k][m][n][0] = data_inter[m][n]
+        if os.path.exists("./data/compress/compress" + str(i + 1) + "/w3_" + str(j + 100) + ".csv"):
+            data_file = pd.read_csv("./data/compress/compress" + str(i + 1) + "/w3_" + str(j + 100) + ".csv")
+            # data_inter=np.array(data_file.values.T[0])
+            data_inter = np.array(data_file.values)
+            Maxx = np.max(data_inter)
+            Minn = np.min(data_inter)
+            # data_inter=data_inter.reshape([512,512])
+            data_inter = data_inter.reshape([resolution, resolution])
+            if sub_sampling == 0:
+                for m in range(0, 512):
+                    for n in range(0, 512):
+                        data_set[k][m][n][0] = data_inter[m][n]
+            else:
+                for m in range(0, resolution):
+                    for n in range(0, resolution):
+                        data_set[k][m][n][0] = data_inter[m][n]
+            # can also replace 4 by 2
+            Ma[k] = Maxx
+            Mi[k] = Minn
+            k = k + 1
         else:
-            for m in range(0, 32):
-                for n in range(0, 32):
-                    data_set[k][m][n][0] = data_inter[m][n]
-        # can also replace 4 by 2
-        Ma[k] = Maxx
-        Mi[k] = Minn
-        k = k + 1
+            pass
         # print(k, "./data/compress/compress" + str(i + 1) + "/w3_" + str(j + 100) + ".csv")
         if k % 1000 == 0:
             print("loaded : {} in {} data".format(k, N_filecase))
@@ -210,9 +213,7 @@ else:
 MMAX = MMAX + 0.01
 for l in range(0, N_filecase):
     data_set[l] = (data_set[l] + MMAX) / (2 * MMAX)
-print('data_set = ',np.shape(data_set))
 train_dataset = data_set.transpose(0, 3, 1, 2)
-print('train_dataset = ',np.shape(train_dataset))
 # Data Loader
 train_loader = torch.utils.data.DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
 
@@ -228,16 +229,16 @@ D.to(device)
 BCE_loss = nn.BCELoss()
 
 # Adam optimizer
-G_optimizer = optim.Adam(G.parameters(), lr=lr, betas=(0.5, 0.999))
-D_optimizer = optim.Adam(D.parameters(), lr=lr, betas=(0.5, 0.999))
+G_optimizer = optim.Adam(G.parameters(), lr=glr, betas=(0.5, 0.999))
+D_optimizer = optim.Adam(D.parameters(), lr=dlr, betas=(0.5, 0.999))
 
 # results save folder
-if not os.path.isdir('../MNIST_DCGAN_results'):
-    os.mkdir('../MNIST_DCGAN_results')
-if not os.path.isdir('../MNIST_DCGAN_results/Random_results'):
-    os.mkdir('../MNIST_DCGAN_results/Random_results')
-if not os.path.isdir('../MNIST_DCGAN_results/Fixed_results'):
-    os.mkdir('../MNIST_DCGAN_results/Fixed_results')
+if not os.path.isdir('../FLU32_DCGAN_results'):
+    os.mkdir('../FLU32_DCGAN_results')
+if not os.path.isdir('../FLU32_DCGAN_results/Random_results'):
+    os.mkdir('../FLU32_DCGAN_results/Random_results')
+if not os.path.isdir('../FLU32_DCGAN_results/Fixed_results'):
+    os.mkdir('../FLU32_DCGAN_results/Fixed_results')
 
 train_hist = {}
 train_hist['D_losses'] = []
@@ -252,15 +253,16 @@ for epoch in range(train_epoch):
     D_losses = []
     G_losses = []
     epoch_start_time = time.time()
-    for _, x_ in train_loader:
+    for _, x_ in enumerate(train_loader):
         # train discriminator D
         D.zero_grad()
+        x_ = x_.type(torch.cuda.FloatTensor)
 
         mini_batch = x_.size()[0]
 
         y_real_ = torch.ones(mini_batch)
         y_fake_ = torch.zeros(mini_batch)
-
+        
         x_, y_real_, y_fake_ = Variable(x_.to(device)), Variable(y_real_.to(device)), Variable(y_fake_.to(device))
         D_result = D(x_).squeeze()
         D_real_loss = BCE_loss(D_result, y_real_)
@@ -279,7 +281,7 @@ for epoch in range(train_epoch):
         D_optimizer.step()
 
         # D_losses.append(D_train_loss.data[0])
-        D_losses.append(D_train_loss.data[0])
+        D_losses.append(D_train_loss.item())
 
         # train generator G
         G.zero_grad()
@@ -293,7 +295,7 @@ for epoch in range(train_epoch):
         G_train_loss.backward()
         G_optimizer.step()
 
-        G_losses.append(G_train_loss.data[0])
+        G_losses.append(G_train_loss.item())
 
         num_iter += 1
 
@@ -303,10 +305,14 @@ for epoch in range(train_epoch):
     print('[%d/%d] - ptime: %.2f, loss_d: %.3f, loss_g: %.3f' % (
     (epoch + 1), train_epoch, per_epoch_ptime, torch.mean(torch.FloatTensor(D_losses)),
     torch.mean(torch.FloatTensor(G_losses))))
-    p = 'MNIST_DCGAN_results/Random_results/MNIST_DCGAN_' + str(epoch + 1) + '.png'
-    fixed_p = 'MNIST_DCGAN_results/Fixed_results/MNIST_DCGAN_' + str(epoch + 1) + '.png'
-    show_result((epoch + 1), save=True, path=p, isFix=False)
-    show_result((epoch + 1), save=True, path=fixed_p, isFix=True)
+    p = '../FLU32_DCGAN_results/Random_results/FLU32_DCGAN_' + str(epoch + 1) + '.png'
+    fixed_p = '../FLU32_DCGAN_results/Fixed_results/FLU32_DCGAN_' + str(epoch + 1) + '.png'
+    #######################
+    #show results#
+    if (epoch + 1)%1 == 0:
+        show_result((epoch + 1), save=True, path=p, isFix=False)
+        show_result((epoch + 1), save=True, path=fixed_p, isFix=True)
+    #######################
     train_hist['D_losses'].append(torch.mean(torch.FloatTensor(D_losses)))
     train_hist['G_losses'].append(torch.mean(torch.FloatTensor(G_losses)))
     train_hist['per_epoch_ptimes'].append(per_epoch_ptime)
@@ -318,15 +324,16 @@ train_hist['total_ptime'].append(total_ptime)
 print("Avg per epoch ptime: %.2f, total %d epochs ptime: %.2f" % (
 torch.mean(torch.FloatTensor(train_hist['per_epoch_ptimes'])), train_epoch, total_ptime))
 print("Training finish!... save training results")
-torch.save(G.state_dict(), "MNIST_DCGAN_results/generator_param.pkl")
-torch.save(D.state_dict(), "MNIST_DCGAN_results/discriminator_param.pkl")
-with open('MNIST_DCGAN_results/train_hist.pkl', 'wb') as f:
+torch.save(G.state_dict(), "../FLU32_DCGAN_results/generator_param.pkl")
+torch.save(D.state_dict(), "../FLU32_DCGAN_results/discriminator_param.pkl")
+with open('../FLU32_DCGAN_results/train_hist.pkl', 'wb') as f:
     pickle.dump(train_hist, f)
 
-show_train_hist(train_hist, save=True, path='MNIST_DCGAN_results/MNIST_DCGAN_train_hist.png')
+show_train_hist(train_hist, save=True, path='../FLU32_DCGAN_results/FLU32_DCGAN_train_hist.png')
 
 images = []
 for e in range(train_epoch):
-    img_name = 'MNIST_DCGAN_results/Fixed_results/MNIST_DCGAN_' + str(e + 1) + '.png'
-    images.append(imageio.imread(img_name))
-imageio.mimsave('MNIST_DCGAN_results/generation_animation.gif', images, fps=5)
+    img_name = '../FLU32_DCGAN_results/Fixed_results/FLU32_DCGAN_' + str(e + 1) + '.png'
+    if os.path.exists(img_name):
+        images.append(imageio.imread(img_name))
+imageio.mimsave('../FLU32_DCGAN_results/generation_animation.gif', images, fps=5)
